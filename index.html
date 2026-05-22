@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QA Control Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ─── TOKENS ─── */
+:root {
+  --ink:     #0a0a0f;
+  --paper:   #f2f0ea;
+  --paper2:  #e8e5dc;
+  --paper3:  #dedad0;
+  --line:    rgba(10,10,15,0.12);
+  --line2:   rgba(10,10,15,0.06);
+  --accent:  #00d4aa;
+  --accent2: #ff4d6d;
+  --accent3: #ffd60a;
+  --pass:    #00c896;
+  --fail:    #ff3d5a;
+  --skip:    #888;
+  --warn:    #ff9500;
+  --mono:    'JetBrains Mono', monospace;
+  --display: 'Syne', sans-serif;
+  --shadow:  4px 4px 0 rgba(10,10,15,0.15);
+  --shadow2: 2px 2px 0 rgba(10,10,15,0.1);
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body {
+  font-family: var(--display);
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+  cursor: default;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.6;
+}
+
+/* ─── LOGIN SCREEN ─── */
+#login-screen {
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--ink);
+  display: flex; align-items: center; justify-content: center;
+}
+.login-box {
+  background: var(--paper);
+  border: 3px solid var(--accent);
+  box-shadow: 8px 8px 0 rgba(0,212,170,0.3);
+  padding: 40px 48px;
+  width: 100%; max-width: 420px;
+  position: relative;
+  animation: slideIn 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+.login-badge {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px;
+}
+.login-badge::before {
+  content: '';
+  display: inline-block; width: 6px; height: 6px;
+  background: var(--accent); border-radius: 50%;
+  animation: blink 2s steps(1) infinite;
+}
+.login-title {
+  font-size: 32px; font-weight: 800;
+  letter-spacing: -0.03em; text-transform: uppercase;
+  line-height: 1; margin-bottom: 32px;
+}
+.login-title em { font-style: normal; color: transparent; -webkit-text-stroke: 2px var(--ink); }
+.login-field { margin-bottom: 18px; }
+.login-label {
+  font-family: var(--mono); font-size: 9px; font-weight: 600;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--skip); margin-bottom: 6px; display: block;
+}
+.login-input {
+  width: 100%; font-family: var(--mono); font-size: 13px;
+  padding: 10px 14px; border: 2px solid var(--ink);
+  background: white; outline: none;
+  box-shadow: var(--shadow2); transition: box-shadow 0.15s, border-color 0.15s;
+}
+.login-input:focus { border-color: var(--accent); box-shadow: var(--shadow); }
+.login-btn {
+  width: 100%; margin-top: 8px;
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 12px; border: 2px solid var(--ink);
+  background: var(--ink); color: var(--paper);
+  cursor: pointer; box-shadow: var(--shadow);
+  transition: all 0.1s;
+}
+.login-btn:hover { background: #222; transform: translate(-1px,-1px); box-shadow: 6px 6px 0 rgba(10,10,15,0.2); }
+.login-btn:active { transform: translate(1px,1px); box-shadow: 2px 2px 0 rgba(10,10,15,0.15); }
+.login-error {
+  font-family: var(--mono); font-size: 11px; color: var(--fail);
+  padding: 8px 12px; border: 2px solid var(--fail);
+  background: rgba(255,61,90,0.07); margin-top: 12px;
+  display: none;
+}
+.login-error.show { display: block; }
+.login-user-display {
+  position: absolute; top: 14px; right: 14px;
+  font-family: var(--mono); font-size: 9px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--skip);
+}
+
+/* ─── LAYOUT ─── */
+.shell { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px 80px; }
+header {
+  padding: 40px 0 32px; border-bottom: 2px solid var(--ink);
+  display: grid; grid-template-columns: 1fr auto;
+  align-items: end; gap: 16px; margin-bottom: 36px;
+}
+.sys-label {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--skip); margin-bottom: 6px;
+  display: flex; align-items: center; gap: 8px;
+}
+.sys-label::before {
+  content: ''; display: inline-block; width: 6px; height: 6px;
+  background: var(--accent); border-radius: 50%;
+  animation: blink 2s steps(1) infinite;
+}
+@keyframes blink { 0%,100%{ opacity:1 } 50%{ opacity:0 } }
+h1 {
+  font-size: clamp(32px, 5vw, 52px); font-weight: 800;
+  letter-spacing: -0.03em; line-height: 0.95; text-transform: uppercase;
+}
+h1 em { font-style: normal; color: transparent; -webkit-text-stroke: 2px var(--ink); }
+.header-meta { font-family: var(--mono); font-size: 11px; color: var(--skip); text-align: right; line-height: 1.8; }
+.header-meta strong { color: var(--ink); }
+
+/* ─── PROGRESS STRIP ─── */
+.progress-strip {
+  display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 0; border: 2px solid var(--ink);
+  overflow: hidden; margin-bottom: 32px; box-shadow: var(--shadow);
+}
+.stat-block {
+  padding: 14px 18px; border-right: 2px solid var(--ink);
+  background: white; position: relative; transition: background 0.15s;
+}
+.stat-block:last-child { border-right: none; }
+.stat-block::after {
+  content: ''; position: absolute; bottom: 0; left: 0;
+  height: 3px; width: var(--pct, 0%); background: var(--clr, var(--accent));
+  transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+.stat-label { font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--skip); margin-bottom: 4px; }
+.stat-num { font-size: 28px; font-weight: 800; line-height: 1; color: var(--clr, var(--ink)); font-family: var(--mono); }
+.stat-of { font-family: var(--mono); font-size: 10px; color: var(--skip); margin-top: 2px; }
+
+/* ─── MEGA BAR ─── */
+.mega-bar-wrap { margin-bottom: 32px; }
+.mega-bar-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.mega-bar-label { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--skip); }
+.mega-bar-pct { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--ink); }
+.mega-bar { height: 10px; background: var(--paper2); border: 2px solid var(--ink); overflow: hidden; }
+.mega-bar-fill {
+  height: 100%;
+  background: repeating-linear-gradient(-45deg, var(--pass) 0, var(--pass) 6px, #00e8b0 6px, #00e8b0 12px);
+  transition: width 0.6s cubic-bezier(0.4,0,0.2,1); width: 0%;
+}
+
+/* ─── TOOLBAR ─── */
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 24px; }
+.tb-btn {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 8px 14px; border: 2px solid var(--ink); background: white;
+  cursor: pointer; box-shadow: var(--shadow2); transition: all 0.1s;
+  display: flex; align-items: center; gap: 6px;
+}
+.tb-btn:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 rgba(10,10,15,0.18); }
+.tb-btn:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 rgba(10,10,15,0.1); }
+.tb-btn.primary { background: var(--ink); color: var(--paper); }
+.tb-btn.danger { border-color: var(--fail); color: var(--fail); }
+.tb-btn.danger:hover { background: var(--fail); color: white; }
+.tb-btn.success { border-color: var(--pass); color: var(--pass); }
+.tb-btn.success:hover { background: var(--pass); color: white; }
+.tb-sep { width: 1px; height: 28px; background: var(--line); margin: 0 4px; }
+
+/* ─── SEARCH ─── */
+.search-wrap { margin-bottom: 24px; position: relative; }
+.search-input {
+  width: 100%; font-family: var(--mono); font-size: 13px;
+  padding: 12px 16px 12px 44px; border: 2px solid var(--ink);
+  background: white; outline: none; box-shadow: var(--shadow2); transition: box-shadow 0.15s;
+}
+.search-input:focus { box-shadow: var(--shadow); }
+.search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 16px; color: var(--skip); pointer-events: none; }
+
+/* ─── SECTION ─── */
+.section { margin-bottom: 28px; border: 2px solid var(--ink); background: white; box-shadow: var(--shadow); overflow: hidden; }
+.section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; background: var(--ink); color: var(--paper);
+  gap: 12px; cursor: pointer; user-select: none;
+}
+.section-head:hover { background: #1a1a24; }
+.section-name { font-size: 13px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; flex: 1; display: flex; align-items: center; gap: 10px; }
+.section-name input {
+  background: transparent; border: none; border-bottom: 1.5px solid rgba(255,255,255,0.3);
+  color: var(--paper); font-family: var(--display); font-size: 13px; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase; outline: none; width: 200px;
+  padding: 2px 4px; cursor: text; transition: border-color 0.15s;
+}
+.section-name input:focus { border-color: var(--accent); }
+.section-pills { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.pill { font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 3px 8px; border: 1.5px solid; letter-spacing: 0.08em; }
+.pill.pass { border-color: var(--pass); color: var(--pass); }
+.pill.fail { border-color: var(--fail); color: var(--fail); }
+.pill.total { border-color: rgba(255,255,255,0.3); color: rgba(255,255,255,0.6); }
+.section-arrow { font-size: 12px; color: rgba(255,255,255,0.5); transition: transform 0.2s; }
+.section.collapsed .section-arrow { transform: rotate(-90deg); }
+.section-body { overflow: hidden; transition: max-height 0.3s ease; }
+.section.collapsed .section-body { max-height: 0 !important; }
+
+/* ─── ADD SECTION BTN ─── */
+.section-add-row { border: 2px dashed var(--line); padding: 2px; background: transparent; margin-bottom: 28px; cursor: pointer; transition: all 0.15s; text-align: center; }
+.section-add-row:hover { border-color: var(--ink); background: var(--paper2); }
+.section-add-row span { display: block; padding: 12px; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--skip); }
+.section-add-row:hover span { color: var(--ink); }
+
+/* ─── TEST ROW ─── */
+.test-row {
+  display: grid; grid-template-columns: 40px 1fr auto auto auto;
+  align-items: center; gap: 0;
+  border-bottom: 1px solid var(--line2); min-height: 52px;
+  transition: background 0.12s; position: relative;
+}
+.test-row:last-child { border-bottom: none; }
+.test-row:hover { background: #fafafa; }
+.test-row.status-pass { background: rgba(0,200,150,0.04); }
+.test-row.status-fail { background: rgba(255,61,90,0.04); }
+.test-row.status-skip { background: rgba(136,136,136,0.04); }
+.drag-handle { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--line); font-size: 14px; cursor: grab; transition: color 0.15s; padding: 0 6px 0 10px; }
+.test-row:hover .drag-handle { color: var(--skip); }
+.drag-handle:active { cursor: grabbing; }
+.test-text-wrap { padding: 12px 14px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.test-name {
+  font-size: 13px; font-weight: 600; line-height: 1.4; word-break: break-word;
+  outline: none; border: none; border-bottom: 1.5px solid transparent;
+  background: transparent; font-family: var(--display); color: var(--ink);
+  width: 100%; cursor: text; transition: border-color 0.15s; padding: 1px 2px;
+}
+.test-name:focus { border-bottom-color: var(--accent); background: rgba(0,212,170,0.05); }
+.test-desc {
+  font-family: var(--mono); font-size: 10px; color: var(--skip);
+  outline: none; border: none; border-bottom: 1px solid transparent;
+  background: transparent; width: 100%; cursor: text; transition: border-color 0.15s; padding: 1px 2px;
+}
+.test-desc:focus { border-bottom-color: rgba(0,212,170,0.5); background: rgba(0,212,170,0.04); }
+.test-desc::placeholder { color: rgba(136,136,136,0.5); }
+
+/* ─── STATUS ─── */
+.status-wrap { padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.status-group { display: flex; gap: 3px; }
+.status-btn {
+  width: 28px; height: 28px; border: 2px solid var(--line); background: white;
+  cursor: pointer; font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s; font-family: var(--mono); position: relative;
+}
+.status-btn:hover { border-color: var(--ink); z-index: 1; }
+.status-btn.active-pass { background: var(--pass); border-color: var(--pass); color: white; }
+.status-btn.active-fail { background: var(--fail); border-color: var(--fail); color: white; }
+.status-btn.active-skip { background: var(--skip); border-color: var(--skip); color: white; }
+.status-btn.active-warn { background: var(--warn); border-color: var(--warn); color: white; }
+
+/* ─── PRIORITY ─── */
+.priority-wrap { padding: 8px 10px; display: flex; align-items: center; justify-content: center; }
+.priority-btn {
+  width: 24px; height: 24px; border: 2px solid var(--line); background: white;
+  cursor: pointer; font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); transition: all 0.12s;
+}
+.priority-btn:hover { border-color: var(--accent3); }
+.priority-btn.p1 { border-color: var(--fail); color: var(--fail); background: rgba(255,61,90,0.08); }
+.priority-btn.p2 { border-color: var(--warn); color: var(--warn); background: rgba(255,149,0,0.08); }
+.priority-btn.p3 { border-color: var(--skip); color: var(--skip); background: rgba(136,136,136,0.08); }
+
+/* ─── ROW ACTIONS ─── */
+.row-actions { padding: 8px 12px 8px 6px; display: flex; gap: 4px; align-items: center; opacity: 0; transition: opacity 0.15s; }
+.test-row:hover .row-actions { opacity: 1; }
+.row-action-btn {
+  width: 24px; height: 24px; border: 1.5px solid var(--line); background: white;
+  cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s; color: var(--skip);
+}
+.row-action-btn:hover { border-color: var(--fail); color: var(--fail); }
+.row-action-btn.dup:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ─── ADD ROW ─── */
+.add-test-row { display: flex; align-items: center; gap: 0; padding: 0; border-top: 1px solid var(--line2); cursor: pointer; transition: background 0.12s; }
+.add-test-row:hover { background: rgba(0,212,170,0.06); }
+.add-test-row span { padding: 12px 18px; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--skip); display: flex; align-items: center; gap: 8px; }
+.add-test-row:hover span { color: var(--accent); }
+
+/* ─── TAGS ─── */
+.tag-wrap { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+.tag { font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: 0.1em; padding: 2px 6px; border: 1.5px solid; text-transform: uppercase; cursor: pointer; transition: all 0.12s; }
+.tag:hover { opacity: 0.7; }
+.tag-api    { border-color: #7c3aed; color: #7c3aed; }
+.tag-ui     { border-color: #0ea5e9; color: #0ea5e9; }
+.tag-perf   { border-color: #f59e0b; color: #f59e0b; }
+.tag-sec    { border-color: #ef4444; color: #ef4444; }
+.tag-smoke  { border-color: #10b981; color: #10b981; }
+.tag-reg    { border-color: #8b5cf6; color: #8b5cf6; }
+
+/* ─── NOTES / EVIDENCIA ─── */
+.notes-row { padding: 8px 16px 12px 54px; border-bottom: 1px solid var(--line2); display: none; }
+.notes-row.open { display: block; }
+.notes-ta {
+  width: 100%; font-family: var(--mono); font-size: 11px; line-height: 1.6;
+  border: 1.5px solid var(--line); background: var(--paper2);
+  padding: 8px 12px; outline: none; resize: none; color: var(--ink);
+  transition: border-color 0.15s; min-height: 60px;
+}
+.notes-ta:focus { border-color: var(--accent); }
+.notes-ta::placeholder { color: rgba(136,136,136,0.6); }
+
+/* ─── LINK & IMAGE PANEL ─── */
+.evidence-panel {
+  padding: 10px 16px 14px 54px;
+  border-bottom: 1px solid var(--line2);
+  background: rgba(0,212,170,0.02);
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+}
+.evidence-panel.open { display: flex; }
+.ev-row { display: flex; gap: 8px; align-items: center; }
+.ev-label { font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--skip); min-width: 60px; }
+.ev-input {
+  flex: 1; font-family: var(--mono); font-size: 11px;
+  padding: 6px 10px; border: 1.5px solid var(--line);
+  background: white; outline: none; transition: border-color 0.15s;
+}
+.ev-input:focus { border-color: var(--accent); }
+.ev-input::placeholder { color: rgba(136,136,136,0.5); }
+.ev-link-btn {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  padding: 5px 10px; border: 1.5px solid var(--accent);
+  color: var(--accent); background: white; cursor: pointer;
+  white-space: nowrap; transition: all 0.12s; text-decoration: none;
+  display: flex; align-items: center; gap: 4px;
+}
+.ev-link-btn:hover { background: var(--accent); color: white; }
+.ev-img-upload {
+  display: none;
+}
+.ev-img-btn {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  padding: 5px 10px; border: 1.5px solid var(--ink);
+  color: var(--ink); background: white; cursor: pointer;
+  white-space: nowrap; transition: all 0.12s;
+}
+.ev-img-btn:hover { background: var(--ink); color: white; }
+.ev-img-preview {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;
+}
+.ev-thumb-wrap {
+  position: relative; width: 72px; height: 72px;
+  border: 2px solid var(--line); overflow: hidden; background: var(--paper2);
+  cursor: pointer; transition: border-color 0.15s;
+}
+.ev-thumb-wrap:hover { border-color: var(--fail); }
+.ev-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.ev-thumb-del {
+  position: absolute; top: 2px; right: 2px;
+  width: 16px; height: 16px; background: var(--fail); border: none;
+  color: white; font-size: 9px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.12s;
+}
+.ev-thumb-wrap:hover .ev-thumb-del { opacity: 1; }
+
+/* ─── IMAGE LIGHTBOX ─── */
+#lightbox {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.92); display: none;
+  align-items: center; justify-content: center;
+}
+#lightbox.open { display: flex; }
+#lightbox img { max-width: 90vw; max-height: 90vh; border: 3px solid white; }
+#lightbox-close {
+  position: absolute; top: 20px; right: 24px;
+  font-size: 28px; color: white; cursor: pointer;
+  font-weight: 700; line-height: 1;
+}
+#lightbox-close:hover { color: var(--fail); }
+
+/* ─── REPORT PANEL ─── */
+.report-panel {
+  display: none; position: fixed; inset: 0; z-index: 100;
+  background: rgba(10,10,15,0.85); backdrop-filter: blur(8px);
+  align-items: center; justify-content: center; padding: 24px;
+}
+.report-panel.open { display: flex; }
+.report-box {
+  background: var(--paper); border: 2px solid var(--ink);
+  box-shadow: 8px 8px 0 rgba(10,10,15,0.3); width: 100%; max-width: 680px;
+  max-height: 85vh; overflow-y: auto; padding: 32px;
+  position: relative; animation: slideIn 0.25s cubic-bezier(0.4,0,0.2,1);
+}
+@keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.report-close { position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border: 2px solid var(--ink); background: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; font-weight: 700; transition: all 0.1s; }
+.report-close:hover { background: var(--fail); border-color: var(--fail); color: white; }
+.report-title { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; text-transform: uppercase; margin-bottom: 6px; }
+.report-meta { font-family: var(--mono); font-size: 10px; color: var(--skip); margin-bottom: 24px; letter-spacing: 0.1em; }
+.report-bignum { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.rbn { border: 2px solid var(--ink); padding: 14px; background: white; text-align: center; box-shadow: var(--shadow2); }
+.rbn-n { font-size: 32px; font-weight: 800; font-family: var(--mono); }
+.rbn-l { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--skip); margin-top: 2px; }
+.report-section-list { margin-bottom: 20px; }
+.rsl-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--line2); font-size: 13px; }
+.rsl-row:last-child { border-bottom: none; }
+.rsl-name { font-weight: 600; }
+.rsl-bar-wrap { flex: 1; margin: 0 16px; height: 6px; background: var(--paper2); overflow: hidden; }
+.rsl-bar { height: 100%; background: var(--pass); transition: width 0.5s; }
+.rsl-stats { font-family: var(--mono); font-size: 11px; color: var(--skip); white-space: nowrap; }
+
+/* ─── TOAST ─── */
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: var(--ink); color: var(--paper);
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.08em; padding: 10px 20px;
+  border: 2px solid var(--paper); box-shadow: 4px 4px 0 rgba(10,10,15,0.3);
+  opacity: 0; pointer-events: none; z-index: 200;
+  transition: all 0.25s; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.pass-t { border-color: var(--pass); }
+.toast.fail-t { border-color: var(--fail); }
+
+/* ─── MISC ─── */
+.empty-section { padding: 30px 20px; text-align: center; font-family: var(--mono); font-size: 11px; color: var(--skip); letter-spacing: 0.1em; text-transform: uppercase; border-bottom: 1px solid var(--line2); }
+.filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+.filter-label { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--skip); margin-right: 4px; }
+.filter-chip { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 12px; border: 2px solid var(--line); background: white; cursor: pointer; transition: all 0.12s; color: var(--skip); }
+.filter-chip:hover, .filter-chip.active { border-color: var(--ink); color: var(--ink); }
+.filter-chip.active { background: var(--ink); color: var(--paper); }
+.filter-chip.fc-pass.active { background: var(--pass); border-color: var(--pass); color: white; }
+.filter-chip.fc-fail.active { background: var(--fail); border-color: var(--fail); color: white; }
+.filter-chip.fc-skip.active { background: var(--skip); border-color: var(--skip); color: white; }
+.filter-chip.fc-warn.active { background: var(--warn); border-color: var(--warn); color: white; }
+.completion-pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; font-weight: 600; padding: 5px 12px; border: 2px solid var(--ink); background: white; color: var(--ink); box-shadow: var(--shadow2); }
+.completion-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pass); }
+.test-row.selected { outline: 2px solid var(--accent); outline-offset: -2px; background: rgba(0,212,170,0.06); }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--paper2); }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: var(--skip); }
+@media print {
+  #login-screen, .toolbar, .search-wrap, .filter-bar, .tb-btn, .row-actions,
+  .drag-handle, .add-test-row, .section-add-row, .toast, header .header-meta { display: none !important; }
+  body { background: white; }
+  .section { box-shadow: none; break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<!-- ─── LOGIN SCREEN ─── -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-badge">QA Control Center v2.0</div>
+    <div class="login-title">QA<br><em>Login</em></div>
+    <div class="login-field">
+      <label class="login-label" for="login-user">Usuario</label>
+      <input type="text" id="login-user" class="login-input" placeholder="Ingresa tu usuario" autocomplete="username">
+    </div>
+    <div class="login-field">
+      <label class="login-label" for="login-pass">Contraseña</label>
+      <input type="password" id="login-pass" class="login-input" placeholder="••••••••••" autocomplete="current-password">
+    </div>
+    <button class="login-btn" onclick="doLogin()">→ Ingresar</button>
+    <div class="login-error" id="login-error">⚠ Credenciales incorrectas. Intenta nuevamente.</div>
+  </div>
+</div>
+
+<!-- ─── MAIN APP ─── -->
+<div class="shell" id="app-shell" style="display:none">
+
+  <header>
+    <div class="header-left">
+      <div class="sys-label">QA Control Center v2.0</div>
+      <h1>Test<br><em>Suite</em></h1>
+    </div>
+    <div class="header-meta">
+      <strong id="hdr-date">—</strong><br>
+      Sesión: <strong id="hdr-user">—</strong><br>
+      Build: <strong id="hdr-build">—</strong><br>
+      <button class="tb-btn danger" style="font-size:9px;padding:3px 8px;margin-top:4px;" onclick="doLogout()">⏻ Cerrar sesión</button>
+    </div>
+  </header>
+
+  <div class="progress-strip">
+    <div class="stat-block" style="--clr:var(--ink);">
+      <div class="stat-label">Total</div>
+      <div class="stat-num" id="st-total">0</div>
+      <div class="stat-of">casos de prueba</div>
+    </div>
+    <div class="stat-block" style="--clr:var(--pass);">
+      <div class="stat-label">✔ Passed</div>
+      <div class="stat-num" id="st-pass">0</div>
+      <div class="stat-of" id="st-pass-pct">— %</div>
+    </div>
+    <div class="stat-block" style="--clr:var(--fail);">
+      <div class="stat-label">✘ Failed</div>
+      <div class="stat-num" id="st-fail">0</div>
+      <div class="stat-of" id="st-fail-pct">— %</div>
+    </div>
+    <div class="stat-block" style="--clr:var(--warn);">
+      <div class="stat-label">⚠ Pending</div>
+      <div class="stat-num" id="st-pend">0</div>
+      <div class="stat-of" id="st-pend-pct">— %</div>
+    </div>
+  </div>
+
+  <div class="mega-bar-wrap">
+    <div class="mega-bar-top">
+      <span class="mega-bar-label">Progreso de ejecución</span>
+      <span class="mega-bar-pct" id="mb-pct">0%</span>
+    </div>
+    <div class="mega-bar">
+      <div class="mega-bar-fill" id="mb-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="tb-btn primary" onclick="addSection()">＋ Sección</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn success" onclick="markAll('pass')">✔ All Pass</button>
+    <button class="tb-btn danger"  onclick="markAll('fail')">✘ All Fail</button>
+    <button class="tb-btn" onclick="resetAll()">↺ Reset</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" onclick="openReport()">📊 Reporte</button>
+    <button class="tb-btn" onclick="exportJSON()">⬇ JSON</button>
+    <button class="tb-btn" onclick="window.print()">🖨 Print</button>
+    <div class="tb-sep"></div>
+    <div class="completion-pill">
+      <div class="completion-dot"></div>
+      <span id="completion-txt">Auto-guardado activo</span>
+    </div>
+  </div>
+
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" class="search-input" id="search-in" placeholder="Buscar prueba por nombre, descripción o etiqueta…" oninput="filterSearch()">
+  </div>
+
+  <div class="filter-bar">
+    <span class="filter-label">Filtrar:</span>
+    <button class="filter-chip active" onclick="setFilter('all',this)">Todos</button>
+    <button class="filter-chip fc-pass" onclick="setFilter('pass',this)">✔ Pass</button>
+    <button class="filter-chip fc-fail" onclick="setFilter('fail',this)">✘ Fail</button>
+    <button class="filter-chip fc-skip" onclick="setFilter('skip',this)">— Skip</button>
+    <button class="filter-chip fc-warn" onclick="setFilter('warn',this)">⚠ Warn</button>
+    <button class="filter-chip" onclick="setFilter('none',this)">◌ Sin ejecutar</button>
+    <button class="filter-chip" onclick="setFilter('p1',this)">🔴 P1</button>
+    <button class="filter-chip" onclick="setFilter('p2',this)">🟡 P2</button>
+  </div>
+
+  <div id="sections-root"></div>
+
+  <div class="section-add-row" onclick="addSection()">
+    <span>＋ Agregar nueva sección de pruebas</span>
+  </div>
+
+</div><!-- /shell -->
+
+<!-- ─── REPORT PANEL ─── -->
+<div class="report-panel" id="report-panel">
+  <div class="report-box">
+    <button class="report-close" onclick="closeReport()">✕</button>
+    <div class="report-title">Test Report</div>
+    <div class="report-meta" id="rep-meta"></div>
+    <div class="report-bignum" id="rep-bignums"></div>
+    <div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--skip);margin-bottom:10px;">Resultado por sección</div>
+    <div class="report-section-list" id="rep-section-list"></div>
+  </div>
+</div>
+
+<!-- ─── LIGHTBOX ─── -->
+<div id="lightbox">
+  <span id="lightbox-close" onclick="closeLightbox()">✕</span>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  AUTH — credenciales encriptadas con SHA-256
+// ══════════════════════════════════════════════════════════
+// Hashes precalculados (SHA-256 hex):
+// Usuario: QA_Eduardo  → hash del string "QA_Eduardo"
+// Password: Bethprof.26 → hash del string "Bethprof.26"
+const AUTH_HASH_USER = '55ed858adaa8afc4887f8d33a17daed6f8cf284fb3cf99ddd6b15353c4f72d24';
+const AUTH_HASH_PASS = '4e70a356135a9bf691a648faacf247d8caed7b33fe462f6d6b514d4f1f428732';
+
+async function sha256hex(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function doLogin() {
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value;
+  const [hu, hp] = await Promise.all([sha256hex(u), sha256hex(p)]);
+  if(hu === AUTH_HASH_USER && hp === AUTH_HASH_PASS) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-shell').style.display = 'block';
+    document.getElementById('hdr-user').textContent = u;
+    sessionStorage.setItem('qa_auth', hu);
+    sessionStorage.setItem('qa_session_user', u);
+    load(); render();
+    const now = new Date();
+    document.getElementById('hdr-date').textContent = now.toLocaleDateString('es-CL',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    document.getElementById('hdr-build').textContent = 'build-' + now.toISOString().slice(0,10).replace(/-/g,'');
+    toast('Bienvenido, ' + u + ' ✔', 'pass-t');
+  } else {
+    document.getElementById('login-error').classList.add('show');
+    document.getElementById('login-pass').value = '';
+  }
+}
+
+function doLogout() {
+  sessionStorage.removeItem('qa_auth');
+  sessionStorage.removeItem('qa_session_user');
+  document.getElementById('app-shell').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-error').classList.remove('show');
+}
+
+// Auto-login si hay sesión activa en la pestaña
+(async function checkSession() {
+  const stored = sessionStorage.getItem('qa_auth');
+  const storedUser = sessionStorage.getItem('qa_session_user');
+  if(stored === AUTH_HASH_USER && storedUser) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-shell').style.display = 'block';
+    document.getElementById('hdr-user').textContent = storedUser;
+    const now = new Date();
+    document.getElementById('hdr-date').textContent = now.toLocaleDateString('es-CL',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    document.getElementById('hdr-build').textContent = 'build-' + now.toISOString().slice(0,10).replace(/-/g,'');
+    load(); render();
+  }
+})();
+
+// Enter key en login
+document.addEventListener('keydown', e => {
+  if(document.getElementById('login-screen').style.display !== 'none') {
+    if(e.key === 'Enter') doLogin();
+    return;
+  }
+  if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if(e.key === 'Escape') closeReport();
+  if(e.key === 'f' || e.key === 'F') document.getElementById('search-in').focus();
+});
+
+// ══════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════
+const TAGS = ['API','UI','PERF','SEC','SMOKE','REG'];
+const TAG_COLORS = {API:'tag-api',UI:'tag-ui',PERF:'tag-perf',SEC:'tag-sec',SMOKE:'tag-smoke',REG:'tag-reg'};
+const PRIO = ['P1','P2','P3'];
+
+let state = { sections: [], filter: 'all', search: '' };
+let nextSid = 1, nextTid = 1;
+
+function defaultState() {
+  const sections = [
+    {
+      id: sid(), name: 'Funcionalidades Core', collapsed: false,
+      tests: [
+        mk('Login con credenciales válidas','Verificar que el usuario accede correctamente con user/pass válidos','SMOKE','P1'),
+        mk('Login con credenciales inválidas','Debe mostrar mensaje de error y no autenticar','SMOKE','P1'),
+        mk('Logout cierra sesión correctamente','Token eliminado, redirect a /login','SEC','P1'),
+        mk('Registro de nuevo usuario','Formulario completo, validaciones y confirmación por email','UI','P2'),
+      ]
+    },
+    {
+      id: sid(), name: 'API Endpoints', collapsed: false,
+      tests: [
+        mk('GET /api/users retorna 200','Response time < 300ms, schema correcto','API','P1'),
+        mk('POST /api/users crea recurso','Status 201, body con id generado','API','P1'),
+        mk('PUT /api/users/:id actualiza','Status 200, campos actualizados','API','P2'),
+        mk('DELETE /api/users/:id elimina','Status 204, recurso no encontrado en GET posterior','API','P2'),
+        mk('Autenticación requerida en rutas privadas','401 Unauthorized sin token','SEC','P1'),
+      ]
+    },
+    {
+      id: sid(), name: 'Interfaz de Usuario', collapsed: false,
+      tests: [
+        mk('Diseño responsivo en mobile (375px)','Sin overflow, elementos accesibles, touch targets OK','UI','P2'),
+        mk('Diseño responsivo en tablet (768px)','Layout adaptado, navegación correcta','UI','P2'),
+        mk('Formularios con validación en tiempo real','Mensajes de error claros y específicos','UI','P1'),
+        mk('Carga de imágenes / assets < 3s','LCP dentro del umbral en 3G throttle','PERF','P2'),
+      ]
+    },
+    {
+      id: sid(), name: 'Rendimiento & Seguridad', collapsed: false,
+      tests: [
+        mk('Tiempo de carga inicial < 2s','FCP < 2s en conexión rápida (LH score)','PERF','P1'),
+        mk('SQL Injection no ejecuta queries','Inputs sanitizados, DB protegida','SEC','P1'),
+        mk('XSS no inyecta scripts','Encode correcto en outputs de usuario','SEC','P1'),
+        mk('Rate limiting activo en login','Bloqueo tras N intentos fallidos','SEC','P2'),
+      ]
+    },
+  ];
+  return { sections, filter: 'all', search: '' };
+}
+
+function sid() { return 'S' + (nextSid++); }
+function tid() { return 'T' + (nextTid++); }
+
+function mk(name, desc, tag, prio) {
+  return {
+    id: tid(), name, desc, status: 'none', priority: prio || 'P3',
+    tags: tag ? [tag] : [], notes: '', notesOpen: false,
+    evidenceOpen: false,
+    link: '',
+    images: []
+  };
+}
+
+// ══════════════════════════════════════════════════════════
+//  PERSISTENCE
+// ══════════════════════════════════════════════════════════
+function save() {
+  localStorage.setItem('qa_suite_v3', JSON.stringify(state));
+  document.getElementById('completion-txt').textContent = 'Guardado ' + new Date().toLocaleTimeString('es-CL');
+}
+
+function load() {
+  const raw = localStorage.getItem('qa_suite_v3');
+  if(raw) {
+    try {
+      state = JSON.parse(raw);
+      state.sections.forEach(s => {
+        const n = parseInt(s.id.slice(1));
+        if(n >= nextSid) nextSid = n+1;
+        s.tests.forEach(t => {
+          const m = parseInt(t.id.slice(1));
+          if(m >= nextTid) nextTid = m+1;
+          if(!t.link) t.link = '';
+          if(!t.images) t.images = [];
+          if(t.evidenceOpen === undefined) t.evidenceOpen = false;
+        });
+      });
+    } catch { state = defaultState(); }
+  } else {
+    state = defaultState();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════════════
+function render() {
+  const root = document.getElementById('sections-root');
+  root.innerHTML = '';
+  state.sections.forEach(sec => root.appendChild(renderSection(sec)));
+  updateStats();
+}
+
+function renderSection(sec) {
+  const wrap = document.createElement('div');
+  wrap.className = 'section' + (sec.collapsed ? ' collapsed' : '');
+  wrap.dataset.sid = sec.id;
+
+  const head = document.createElement('div');
+  head.className = 'section-head';
+
+  const nameWrap = document.createElement('div');
+  nameWrap.className = 'section-name';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.value = sec.name;
+  nameInput.addEventListener('click', e => e.stopPropagation());
+  nameInput.addEventListener('change', e => { sec.name = e.target.value; save(); updateStats(); });
+  nameWrap.appendChild(nameInput);
+
+  const pills = document.createElement('div');
+  pills.className = 'section-pills';
+  const passed = sec.tests.filter(t => t.status === 'pass').length;
+  const failed = sec.tests.filter(t => t.status === 'fail').length;
+  pills.innerHTML = `
+    <span class="pill total">${sec.tests.length}</span>
+    ${passed ? `<span class="pill pass">✔ ${passed}</span>` : ''}
+    ${failed ? `<span class="pill fail">✘ ${failed}</span>` : ''}
+  `;
+
+  const arrow = document.createElement('span');
+  arrow.className = 'section-arrow';
+  arrow.textContent = '▼';
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'tb-btn danger';
+  delBtn.style.cssText = 'font-size:10px;padding:4px 8px;background:transparent;color:#ff8fa0;border-color:rgba(255,61,90,0.4);';
+  delBtn.textContent = '✕';
+  delBtn.title = 'Eliminar sección';
+  delBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if(!confirm('¿Eliminar sección "' + sec.name + '"?')) return;
+    state.sections = state.sections.filter(s => s.id !== sec.id);
+    save(); render();
+    toast('Sección eliminada');
+  });
+
+  head.addEventListener('click', () => {
+    sec.collapsed = !sec.collapsed;
+    wrap.classList.toggle('collapsed', sec.collapsed);
+    save();
+  });
+
+  head.appendChild(nameWrap);
+  head.appendChild(pills);
+  head.appendChild(delBtn);
+  head.appendChild(arrow);
+  wrap.appendChild(head);
+
+  const body = document.createElement('div');
+  body.className = 'section-body';
+  body.style.maxHeight = sec.collapsed ? '0' : '9999px';
+
+  const q = state.search.toLowerCase();
+  const f = state.filter;
+
+  const visibleTests = sec.tests.filter(t => {
+    if(q && !t.name.toLowerCase().includes(q) && !t.desc.toLowerCase().includes(q) && !t.tags.join(' ').toLowerCase().includes(q)) return false;
+    if(f === 'all') return true;
+    if(f === 'none') return t.status === 'none';
+    if(f === 'p1') return t.priority === 'P1';
+    if(f === 'p2') return t.priority === 'P2';
+    return t.status === f;
+  });
+
+  if(visibleTests.length === 0 && sec.tests.length > 0 && (q || f !== 'all')) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-section';
+    empty.textContent = 'Sin resultados con el filtro activo';
+    body.appendChild(empty);
+  } else if(sec.tests.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-section';
+    empty.textContent = 'Esta sección no tiene pruebas. Agrega la primera ↓';
+    body.appendChild(empty);
+  }
+
+  visibleTests.forEach(test => {
+    const frag = renderTest(sec, test);
+    if(frag.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+      body.appendChild(frag);
+    } else {
+      body.appendChild(frag);
+    }
+  });
+
+  const addRow = document.createElement('div');
+  addRow.className = 'add-test-row';
+  addRow.innerHTML = '<span>＋ Agregar prueba</span>';
+  addRow.addEventListener('click', () => {
+    const t = mk('Nueva prueba de QA','Descripción del caso de prueba…','','P3');
+    sec.tests.push(t);
+    save(); render();
+    setTimeout(() => {
+      const el = document.querySelector(`[data-tid="${t.id}"] .test-name`);
+      if(el) { el.focus(); el.select(); }
+    }, 60);
+    toast('Prueba agregada');
+  });
+  body.appendChild(addRow);
+  wrap.appendChild(body);
+  return wrap;
+}
+
+function renderTest(sec, test) {
+  const frag = document.createDocumentFragment();
+
+  const row = document.createElement('div');
+  row.className = 'test-row status-' + test.status;
+  row.dataset.tid = test.id;
+
+  // drag handle
+  const dh = document.createElement('div');
+  dh.className = 'drag-handle';
+  dh.innerHTML = '⠿';
+  dh.title = 'Arrastrar para reordenar';
+
+  // text
+  const textWrap = document.createElement('div');
+  textWrap.className = 'test-text-wrap';
+
+  const nameIn = document.createElement('input');
+  nameIn.type = 'text';
+  nameIn.className = 'test-name';
+  nameIn.value = test.name;
+  nameIn.placeholder = 'Nombre del caso de prueba…';
+  nameIn.addEventListener('change', e => { test.name = e.target.value; save(); updateStats(); });
+
+  const descIn = document.createElement('input');
+  descIn.type = 'text';
+  descIn.className = 'test-desc';
+  descIn.value = test.desc;
+  descIn.placeholder = 'Descripción / criterio de aceptación…';
+  descIn.addEventListener('change', e => { test.desc = e.target.value; save(); });
+
+  const tagWrap = document.createElement('div');
+  tagWrap.className = 'tag-wrap';
+  TAGS.forEach(tag => {
+    const t = document.createElement('span');
+    t.className = 'tag ' + (TAG_COLORS[tag]||'') + (test.tags.includes(tag) ? ' tag-active' : '');
+    t.style.opacity = test.tags.includes(tag) ? '1' : '0.35';
+    t.textContent = tag;
+    t.title = 'Toggle tag ' + tag;
+    t.addEventListener('click', () => {
+      if(test.tags.includes(tag)) test.tags = test.tags.filter(x=>x!==tag);
+      else test.tags.push(tag);
+      save(); render();
+    });
+    tagWrap.appendChild(t);
+  });
+
+  textWrap.appendChild(nameIn);
+  textWrap.appendChild(descIn);
+  textWrap.appendChild(tagWrap);
+
+  // status
+  const statusWrap = document.createElement('div');
+  statusWrap.className = 'status-wrap';
+  const sg = document.createElement('div');
+  sg.className = 'status-group';
+  [
+    {k:'pass', label:'✔', title:'Pass'},
+    {k:'fail', label:'✘', title:'Fail'},
+    {k:'skip', label:'—', title:'Skip'},
+    {k:'warn', label:'⚠', title:'Warning'},
+  ].forEach(({k, label, title}) => {
+    const btn = document.createElement('button');
+    btn.className = 'status-btn' + (test.status === k ? ' active-'+k : '');
+    btn.textContent = label;
+    btn.title = title;
+    btn.addEventListener('click', () => {
+      test.status = test.status === k ? 'none' : k;
+      save(); render();
+      toast(title + ': ' + test.name.slice(0,40), k === 'pass' ? 'pass-t' : k === 'fail' ? 'fail-t' : '');
+    });
+    sg.appendChild(btn);
+  });
+  statusWrap.appendChild(sg);
+
+  // priority
+  const prioWrap = document.createElement('div');
+  prioWrap.className = 'priority-wrap';
+  const prioBtn = document.createElement('button');
+  prioBtn.className = 'priority-btn ' + test.priority.toLowerCase();
+  prioBtn.textContent = test.priority;
+  prioBtn.title = 'Cambiar prioridad';
+  prioBtn.addEventListener('click', () => {
+    const idx = PRIO.indexOf(test.priority);
+    test.priority = PRIO[(idx+1) % PRIO.length];
+    save(); render();
+  });
+  prioWrap.appendChild(prioBtn);
+
+  // row actions
+  const actWrap = document.createElement('div');
+  actWrap.className = 'row-actions';
+
+  const noteBtn = document.createElement('button');
+  noteBtn.className = 'row-action-btn dup';
+  noteBtn.textContent = '📝';
+  noteBtn.title = 'Notas / evidencia';
+  noteBtn.addEventListener('click', () => {
+    test.notesOpen = !test.notesOpen;
+    save(); render();
+  });
+
+  const evidBtn = document.createElement('button');
+  evidBtn.className = 'row-action-btn dup';
+  evidBtn.textContent = '🔗';
+  evidBtn.title = 'Link & Imágenes';
+  evidBtn.addEventListener('click', () => {
+    test.evidenceOpen = !test.evidenceOpen;
+    save(); render();
+  });
+
+  const dupBtn = document.createElement('button');
+  dupBtn.className = 'row-action-btn dup';
+  dupBtn.textContent = '⧉';
+  dupBtn.title = 'Duplicar';
+  dupBtn.addEventListener('click', () => {
+    const clone = JSON.parse(JSON.stringify(test));
+    clone.id = tid();
+    clone.name = test.name + ' (copia)';
+    clone.status = 'none';
+    const idx = sec.tests.findIndex(x => x.id === test.id);
+    sec.tests.splice(idx+1, 0, clone);
+    save(); render();
+    toast('Prueba duplicada');
+  });
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'row-action-btn';
+  delBtn.textContent = '✕';
+  delBtn.title = 'Eliminar';
+  delBtn.addEventListener('click', () => {
+    sec.tests = sec.tests.filter(t => t.id !== test.id);
+    save(); render();
+    toast('Prueba eliminada');
+  });
+
+  actWrap.appendChild(noteBtn);
+  actWrap.appendChild(evidBtn);
+  actWrap.appendChild(dupBtn);
+  actWrap.appendChild(delBtn);
+
+  row.appendChild(dh);
+  row.appendChild(textWrap);
+  row.appendChild(statusWrap);
+  row.appendChild(prioWrap);
+  row.appendChild(actWrap);
+  frag.appendChild(row);
+
+  // notes row
+  if(test.notesOpen) {
+    const notesDiv = document.createElement('div');
+    notesDiv.className = 'notes-row open';
+    const ta = document.createElement('textarea');
+    ta.className = 'notes-ta';
+    ta.placeholder = 'Notas, evidencia, pasos para reproducir, links de bugs…';
+    ta.value = test.notes || '';
+    ta.addEventListener('change', e => { test.notes = e.target.value; save(); });
+    notesDiv.appendChild(ta);
+    frag.appendChild(notesDiv);
+  }
+
+  // evidence panel (link + images)
+  if(test.evidenceOpen) {
+    const evDiv = document.createElement('div');
+    evDiv.className = 'evidence-panel open';
+
+    // ── Link row ──
+    const linkRow = document.createElement('div');
+    linkRow.className = 'ev-row';
+
+    const linkLabel = document.createElement('span');
+    linkLabel.className = 'ev-label';
+    linkLabel.textContent = '🔗 Link';
+
+    const linkInput = document.createElement('input');
+    linkInput.type = 'url';
+    linkInput.className = 'ev-input';
+    linkInput.placeholder = 'https://drive.google.com/… o cualquier URL de evidencia';
+    linkInput.value = test.link || '';
+    linkInput.addEventListener('change', e => { test.link = e.target.value.trim(); save(); });
+
+    const linkGo = document.createElement('a');
+    linkGo.className = 'ev-link-btn';
+    linkGo.textContent = '↗ Abrir';
+    linkGo.title = 'Abrir link en nueva pestaña';
+    linkGo.target = '_blank';
+    linkGo.rel = 'noopener noreferrer';
+    linkGo.href = test.link || '#';
+    linkGo.addEventListener('click', e => {
+      const url = linkInput.value.trim();
+      if(!url || url === '#') { e.preventDefault(); toast('Primero ingresa un link válido'); return; }
+      linkGo.href = url;
+    });
+
+    linkRow.appendChild(linkLabel);
+    linkRow.appendChild(linkInput);
+    linkRow.appendChild(linkGo);
+    evDiv.appendChild(linkRow);
+
+    // ── Image row ──
+    const imgRow = document.createElement('div');
+    imgRow.className = 'ev-row';
+
+    const imgLabel = document.createElement('span');
+    imgLabel.className = 'ev-label';
+    imgLabel.textContent = '🖼 Imagen';
+
+    const imgInput = document.createElement('input');
+    imgInput.type = 'file';
+    imgInput.className = 'ev-img-upload';
+    imgInput.accept = 'image/*';
+    imgInput.multiple = true;
+    imgInput.id = 'img-' + test.id;
+
+    const imgBtn = document.createElement('label');
+    imgBtn.className = 'ev-img-btn';
+    imgBtn.htmlFor = 'img-' + test.id;
+    imgBtn.textContent = '+ Adjuntar imagen';
+    imgBtn.style.cursor = 'pointer';
+
+    imgInput.addEventListener('change', () => {
+      const files = Array.from(imgInput.files);
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          if(!test.images) test.images = [];
+          test.images.push(e.target.result);
+          save(); render();
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    imgRow.appendChild(imgLabel);
+    imgRow.appendChild(imgInput);
+    imgRow.appendChild(imgBtn);
+    evDiv.appendChild(imgRow);
+
+    // ── Image previews ──
+    if(test.images && test.images.length > 0) {
+      const previewDiv = document.createElement('div');
+      previewDiv.className = 'ev-img-preview';
+      test.images.forEach((src, idx) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'ev-thumb-wrap';
+
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = 'Evidencia ' + (idx+1);
+        img.addEventListener('click', () => openLightbox(src));
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'ev-thumb-del';
+        delBtn.textContent = '✕';
+        delBtn.title = 'Eliminar imagen';
+        delBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          test.images.splice(idx, 1);
+          save(); render();
+        });
+
+        wrap.appendChild(img);
+        wrap.appendChild(delBtn);
+        previewDiv.appendChild(wrap);
+      });
+      evDiv.appendChild(previewDiv);
+    }
+
+    frag.appendChild(evDiv);
+  }
+
+  return frag;
+}
+
+// ══════════════════════════════════════════════════════════
+//  LIGHTBOX
+// ══════════════════════════════════════════════════════════
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+document.getElementById('lightbox').addEventListener('click', e => {
+  if(e.target === document.getElementById('lightbox')) closeLightbox();
+});
+
+// ══════════════════════════════════════════════════════════
+//  STATS
+// ══════════════════════════════════════════════════════════
+function updateStats() {
+  const all = state.sections.flatMap(s => s.tests);
+  const total = all.length;
+  const pass  = all.filter(t => t.status === 'pass').length;
+  const fail  = all.filter(t => t.status === 'fail').length;
+  const pend  = all.filter(t => t.status === 'none' || t.status === 'skip' || t.status === 'warn').length;
+  const pct   = total ? Math.round((pass/total)*100) : 0;
+  document.getElementById('st-total').textContent = total;
+  document.getElementById('st-pass').textContent  = pass;
+  document.getElementById('st-fail').textContent  = fail;
+  document.getElementById('st-pend').textContent  = pend;
+  document.getElementById('st-pass-pct').textContent = total ? pct + '%' : '— %';
+  document.getElementById('st-fail-pct').textContent = total ? Math.round((fail/total)*100) + '%' : '— %';
+  document.getElementById('st-pend-pct').textContent = total ? Math.round((pend/total)*100) + '%' : '— %';
+  document.getElementById('mb-fill').style.width = pct + '%';
+  document.getElementById('mb-pct').textContent = pct + '%';
+  const blocks = document.querySelectorAll('.stat-block');
+  const pcts = [100, pct, total ? Math.round((fail/total)*100) : 0, total ? Math.round((pend/total)*100) : 0];
+  blocks.forEach((b,i) => b.style.setProperty('--pct', pcts[i] + '%'));
+}
+
+// ══════════════════════════════════════════════════════════
+//  ACTIONS
+// ══════════════════════════════════════════════════════════
+function addSection() {
+  const sec = { id: sid(), name: 'Nueva Sección', collapsed: false, tests: [mk('Primera prueba','Descripción del caso…','','P3')] };
+  state.sections.push(sec);
+  save(); render();
+  setTimeout(() => {
+    const inp = document.querySelector(`[data-sid="${sec.id}"] .section-name input`);
+    if(inp) { inp.focus(); inp.select(); }
+  }, 60);
+  toast('Sección agregada');
+}
+
+function markAll(status) {
+  state.sections.forEach(s => s.tests.forEach(t => t.status = status));
+  save(); render();
+  toast(status === 'pass' ? '✔ Todos marcados como PASS' : '✘ Todos marcados como FAIL', status === 'pass' ? 'pass-t' : 'fail-t');
+}
+
+function resetAll() {
+  if(!confirm('¿Resetear todos los estados?')) return;
+  state.sections.forEach(s => s.tests.forEach(t => t.status = 'none'));
+  save(); render();
+  toast('Estados reseteados');
+}
+
+function setFilter(f, btn) {
+  state.filter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+function filterSearch() {
+  state.search = document.getElementById('search-in').value;
+  render();
+}
+
+function openReport() {
+  const all = state.sections.flatMap(s => s.tests);
+  const total = all.length;
+  const pass  = all.filter(t => t.status === 'pass').length;
+  const fail  = all.filter(t => t.status === 'fail').length;
+  const skip  = all.filter(t => t.status === 'skip').length;
+  const warn  = all.filter(t => t.status === 'warn').length;
+  const pend  = all.filter(t => t.status === 'none').length;
+  const pct   = total ? Math.round((pass/total)*100) : 0;
+  document.getElementById('rep-meta').textContent =
+    'Generado el ' + new Date().toLocaleString('es-CL') + ' — Cobertura: ' + pct + '%';
+  document.getElementById('rep-bignums').innerHTML = `
+    <div class="rbn"><div class="rbn-n">${total}</div><div class="rbn-l">Total</div></div>
+    <div class="rbn"><div class="rbn-n" style="color:var(--pass)">${pass}</div><div class="rbn-l">Pass</div></div>
+    <div class="rbn"><div class="rbn-n" style="color:var(--fail)">${fail}</div><div class="rbn-l">Fail</div></div>
+    <div class="rbn"><div class="rbn-n" style="color:var(--warn)">${warn+skip+pend}</div><div class="rbn-l">Pending</div></div>
+  `;
+  document.getElementById('rep-section-list').innerHTML = state.sections.map(s => {
+    const sp  = s.tests.filter(t=>t.status==='pass').length;
+    const sf  = s.tests.filter(t=>t.status==='fail').length;
+    const spct= s.tests.length ? Math.round((sp/s.tests.length)*100) : 0;
+    return `<div class="rsl-row">
+      <div class="rsl-name">${s.name}</div>
+      <div class="rsl-bar-wrap"><div class="rsl-bar" style="width:${spct}%"></div></div>
+      <div class="rsl-stats">✔ ${sp} / ✘ ${sf} / ${s.tests.length} total (${spct}%)</div>
+    </div>`;
+  }).join('');
+  document.getElementById('report-panel').classList.add('open');
+}
+
+function closeReport() {
+  document.getElementById('report-panel').classList.remove('open');
+}
+
+function exportJSON() {
+  const data = {
+    exportedAt: new Date().toISOString(),
+    exportedBy: sessionStorage.getItem('qa_session_user') || '—',
+    summary: {
+      total: state.sections.flatMap(s=>s.tests).length,
+      pass:  state.sections.flatMap(s=>s.tests).filter(t=>t.status==='pass').length,
+      fail:  state.sections.flatMap(s=>s.tests).filter(t=>t.status==='fail').length,
+    },
+    sections: state.sections.map(s => ({
+      ...s,
+      tests: s.tests.map(t => ({...t, images: t.images ? `[${(t.images||[]).length} imagen(es)]` : '0'}))
+    }))
+  };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'qa-suite-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  toast('JSON exportado ✔');
+}
+
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+document.getElementById('report-panel').addEventListener('click', e => {
+  if(e.target === document.getElementById('report-panel')) closeReport();
+});
+</script>
+</body>
+</html>
